@@ -118,7 +118,9 @@ def load_configuration():
             square_off_hour=15,
             square_off_minute=20,
             monitoring_interval=int(os.environ.get('MONITORING_INTERVAL', 1)),
-            position_update_interval=int(os.environ.get('POSITION_UPDATE_INTERVAL', 5))
+            position_update_interval=int(os.environ.get('POSITION_UPDATE_INTERVAL', 5)),
+            enable_paper_trading=os.environ.get('ENABLE_PAPER_TRADING', 'false').lower() == 'true',
+            paper_trade_log_file=os.environ.get('PAPER_TRADE_LOG_FILE', 'logs/paper_trades.log')
         )
 
         # WebSocket configuration

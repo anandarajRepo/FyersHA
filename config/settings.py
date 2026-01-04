@@ -75,3 +75,7 @@ class TradingConfig:
     # Monitoring
     monitoring_interval: int = 1  # seconds
     position_update_interval: int = 5  # seconds
+
+    # Paper trading mode
+    enable_paper_trading: bool = False  # Enable paper trading (no real orders)
+    paper_trade_log_file: str = "logs/paper_trades.log"  # Paper trade log file
