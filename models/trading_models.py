@@ -30,6 +30,19 @@ class LiveQuote:
 
 
 @dataclass
+class OpenRange:
+    """Opening Range data for ORB strategy"""
+    symbol: str
+    high: float
+    low: float
+    range_size: float
+    range_pct: float
+    volume: int
+    start_time: datetime
+    end_time: datetime
+
+
+@dataclass
 class HeikinAshiCandle:
     """Heikin Ashi candle data"""
     symbol: str
