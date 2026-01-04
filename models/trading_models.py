@@ -96,6 +96,37 @@ class HASignal:
 
 
 @dataclass
+class ORBSignal:
+    """Opening Range Breakout Signal"""
+    symbol: str
+    signal_type: SignalType  # LONG or SHORT
+    entry_price: float
+    stop_loss: float
+    target_price: float
+
+    # Signal quality metrics
+    confidence: float
+    volume_ratio: float
+    breakout_strength: float
+
+    # ORB specific
+    opening_range: OpenRange
+    breakout_level: float
+
+    # Timing
+    timestamp: datetime
+
+    # Risk metrics
+    risk_amount: float
+    reward_amount: float
+    risk_reward_ratio: float = field(init=False)
+
+    def __post_init__(self):
+        if self.risk_amount > 0:
+            self.risk_reward_ratio = self.reward_amount / self.risk_amount
+
+
+@dataclass
 class Position:
     """Trading position with Heikin Ashi specific features"""
     symbol: str
