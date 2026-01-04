@@ -1,8 +1,8 @@
 # services/market_timing_service.py
 
 """
-Enhanced Market Timing Service for ORB Strategy
-Handles market hours, ORB periods, and trading windows
+Enhanced Market Timing Service for Heikin Ashi Strategy
+Handles market hours and trading windows
 """
 
 from datetime import datetime, time
@@ -15,7 +15,7 @@ IST = pytz.timezone('Asia/Kolkata')
 
 
 class MarketTimingService:
-    """Enhanced market timing service for ORB strategy"""
+    """Enhanced market timing service for Heikin Ashi strategy"""
 
     def __init__(self, config: TradingConfig):
         self.config = config

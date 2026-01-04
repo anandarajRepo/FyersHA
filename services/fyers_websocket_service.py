@@ -1,7 +1,7 @@
 # services/fyers_websocket_service.py
 
 """
-Enhanced Fyers WebSocket service for Open Range Breakout strategy
+Enhanced Fyers WebSocket service for Heikin Ashi strategy
 Uses centralized symbol management - no hardcoded mappings
 """
 
@@ -26,7 +26,7 @@ from models.trading_models import LiveQuote, OpenRange
 logger = logging.getLogger(__name__)
 
 
-class ORBWebSocketService:
+class FyersWebSocketService:
     """Enhanced WebSocket service with centralized symbol management"""
 
     def __init__(self, fyers_config: FyersConfig, ws_config: WebSocketConfig):
@@ -42,23 +42,16 @@ class ORBWebSocketService:
         self.live_quotes: Dict[str, LiveQuote] = {}
         self.data_callbacks: List[Callable] = []
 
-        # ORB specific data storage
-        self.opening_ranges: Dict[str, OpenRange] = {}
-        self.orb_data_cache: Dict[str, List[LiveQuote]] = defaultdict(list)
+        # Daily high/low tracking
         self.daily_high_low: Dict[str, Dict[str, float]] = defaultdict(lambda: {'high': 0, 'low': float('inf')})
 
         # Fyers WebSocket instance
         self.fyers_socket = None
 
-        # ORB timing control
-        self.orb_period_start = None
-        self.orb_period_end = None
-        self.is_orb_period_active = False
-
     def connect(self) -> bool:
-        """Connect using official Fyers WebSocket with ORB enhancements"""
+        """Connect using official Fyers WebSocket"""
         try:
-            logger.info("Connecting to Fyers WebSocket for ORB strategy...")
+            logger.info("Connecting to Fyers WebSocket for Heikin Ashi strategy...")
 
             # Create Fyers WebSocket instance
             self.fyers_socket = data_ws.FyersDataSocket(
@@ -83,8 +76,7 @@ class ORBWebSocketService:
                 time.sleep(0.1)
 
             if self.is_connected:
-                logger.info("Fyers WebSocket connected successfully for ORB strategy")
-                self._initialize_orb_timing()
+                logger.info("Fyers WebSocket connected successfully for Heikin Ashi strategy")
                 return True
             else:
                 logger.error("Fyers WebSocket connection timeout")
@@ -93,21 +85,6 @@ class ORBWebSocketService:
         except Exception as e:
             logger.error(f"Error connecting to Fyers WebSocket: {e}")
             return False
-
-    def _initialize_orb_timing(self):
-        """Initialize ORB period timing"""
-        now = datetime.now()
-
-        # Set ORB period start (9:15 AM)
-        self.orb_period_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
-
-        # Set ORB period end (9:30 AM)
-        self.orb_period_end = now.replace(hour=9, minute=30, second=0, microsecond=0)
-
-        # Check if we're currently in ORB period
-        self.is_orb_period_active = self.orb_period_start <= now <= self.orb_period_end
-
-        logger.info(f"ORB timing initialized - Active: {self.is_orb_period_active}")
 
     def _start_connection_thread(self):
         """Start WebSocket connection in background thread"""
@@ -149,8 +126,6 @@ class ORBWebSocketService:
                     fyers_symbols.append(fyers_symbol)
                     valid_symbols.append(symbol)
                     self.subscribed_symbols.add(symbol)
-                    # Initialize ORB data cache for each symbol
-                    self.orb_data_cache[symbol] = []
                 else:
                     logger.warning(f"Unknown symbol: {symbol} - skipping")
 
@@ -161,7 +136,7 @@ class ORBWebSocketService:
             # Subscribe using official API
             self.fyers_socket.subscribe(symbols=fyers_symbols, data_type="SymbolUpdate")
 
-            logger.info(f"Subscribed to {len(valid_symbols)} symbols for ORB strategy")
+            logger.info(f"Subscribed to {len(valid_symbols)} symbols for Heikin Ashi strategy")
             logger.debug(f"Valid symbols: {valid_symbols}")
             logger.debug(f"Fyers symbols: {fyers_symbols}")
             return True
@@ -169,34 +144,6 @@ class ORBWebSocketService:
         except Exception as e:
             logger.error(f"Error subscribing to symbols: {e}")
             return False
-
-    def get_opening_range(self, symbol: str) -> Optional[OpenRange]:
-        """Get calculated opening range for a symbol"""
-        return self.opening_ranges.get(symbol)
-
-    def get_all_opening_ranges(self) -> Dict[str, OpenRange]:
-        """Get all calculated opening ranges"""
-        return self.opening_ranges.copy()
-
-    def is_breakout_detected(self, symbol: str, current_price: float) -> tuple:
-        """
-        Check if price breaks out of opening range
-        Returns: (is_breakout, signal_type, breakout_level)
-        """
-        if symbol not in self.opening_ranges:
-            return False, None, None
-
-        range_data = self.opening_ranges[symbol]
-
-        # Check for upside breakout
-        if current_price > range_data.high:
-            return True, 'LONG', range_data.high
-
-        # Check for downside breakout
-        elif current_price < range_data.low:
-            return True, 'SHORT', range_data.low
-
-        return False, None, None
 
     def get_live_quote(self, symbol: str) -> Optional[LiveQuote]:
         """Get latest live quote"""
@@ -214,7 +161,7 @@ class ORBWebSocketService:
         """WebSocket opened"""
         self.is_connected = True
         self.reconnect_count = 0
-        logger.info("Fyers WebSocket opened for ORB strategy")
+        logger.info("Fyers WebSocket opened for Heikin Ashi strategy")
 
     def _on_close(self, message):
         """WebSocket closed"""
@@ -262,9 +209,6 @@ class ORBWebSocketService:
                     # Update storage
                     self.live_quotes[display_symbol] = live_quote
 
-                    # ORB-specific processing
-                    self._process_orb_data(display_symbol, live_quote)
-
                     # Update daily high/low tracking
                     self._update_daily_extremes(display_symbol, live_quote)
 
@@ -275,84 +219,9 @@ class ORBWebSocketService:
                         except Exception as e:
                             logger.error(f"Callback error: {e}")
 
-                    # Detailed logging for active ORB period
-                    if self.is_orb_period_active:
-                        logger.debug(f"ORB Data - {display_symbol}: Rs.{live_quote.ltp:.2f} "
-                                     f"H:{live_quote.high_price:.2f} L:{live_quote.low_price:.2f} "
-                                     f"Vol:{live_quote.volume}")
-
         except Exception as e:
             logger.error(f"Error processing Fyers data: {e}")
             logger.debug(f"Data: {data}")
-
-    def _process_orb_data(self, symbol: str, live_quote: LiveQuote):
-        """Process ORB-specific data during opening range period"""
-        try:
-            now = datetime.now()
-
-            # Check if we're in ORB period
-            if self.orb_period_start <= now <= self.orb_period_end:
-                self.is_orb_period_active = True
-
-                # Cache ORB period data
-                self.orb_data_cache[symbol].append(live_quote)
-
-                # Calculate current opening range
-                orb_quotes = self.orb_data_cache[symbol]
-                if orb_quotes:
-                    current_high = max(q.high_price for q in orb_quotes)
-                    current_low = min(q.low_price for q in orb_quotes)
-                    total_volume = sum(q.volume for q in orb_quotes)
-
-                    # Update opening range
-                    self.opening_ranges[symbol] = OpenRange(
-                        symbol=symbol,
-                        high=current_high,
-                        low=current_low,
-                        range_size=current_high - current_low,
-                        range_pct=((current_high - current_low) / current_low) * 100 if current_low > 0 else 0,
-                        volume=total_volume,
-                        start_time=self.orb_period_start,
-                        end_time=self.orb_period_end
-                    )
-
-            elif now > self.orb_period_end and self.is_orb_period_active:
-                # ORB period just ended
-                self.is_orb_period_active = False
-                self._finalize_opening_ranges()
-
-        except Exception as e:
-            logger.error(f"Error processing ORB data for {symbol}: {e}")
-
-    def _finalize_opening_ranges(self):
-        """Finalize opening ranges when ORB period ends"""
-        try:
-            logger.info("ORB period ended - Finalizing opening ranges")
-
-            for symbol in self.subscribed_symbols:
-                if symbol in self.orb_data_cache and self.orb_data_cache[symbol]:
-                    orb_quotes = self.orb_data_cache[symbol]
-
-                    final_high = max(q.high_price for q in orb_quotes)
-                    final_low = min(q.low_price for q in orb_quotes)
-                    total_volume = orb_quotes[-1].volume  # Latest cumulative volume
-
-                    self.opening_ranges[symbol] = OpenRange(
-                        symbol=symbol,
-                        high=final_high,
-                        low=final_low,
-                        range_size=final_high - final_low,
-                        range_pct=((final_high - final_low) / final_low) * 100 if final_low > 0 else 0,
-                        volume=total_volume,
-                        start_time=self.orb_period_start,
-                        end_time=self.orb_period_end
-                    )
-
-                    logger.info(f"ORB finalized - {symbol}: H:{final_high:.2f} L:{final_low:.2f} "
-                                f"Range:{final_high - final_low:.2f} ({self.opening_ranges[symbol].range_pct:.2f}%)")
-
-        except Exception as e:
-            logger.error(f"Error finalizing opening ranges: {e}")
 
     def _update_daily_extremes(self, symbol: str, live_quote: LiveQuote):
         """Update daily high/low tracking"""
@@ -374,13 +243,11 @@ class ORBWebSocketService:
     def reset_daily_data(self):
         """Reset daily data for new trading day"""
         self.daily_high_low.clear()
-        self.orb_data_cache.clear()
-        self.opening_ranges.clear()
-        logger.info("Daily ORB data reset completed")
+        logger.info("Daily data reset completed")
 
 
 # Enhanced fallback service with centralized symbol management
-class ORBFallbackDataService:
+class FyersRESTDataService:
     """Fallback service using REST API with centralized symbol management"""
 
     def __init__(self, fyers_config: FyersConfig, ws_config: WebSocketConfig):
@@ -393,10 +260,6 @@ class ORBFallbackDataService:
         self.live_quotes: Dict[str, LiveQuote] = {}
         self.data_callbacks: List[Callable] = []
 
-        # ORB data
-        self.opening_ranges: Dict[str, OpenRange] = {}
-        self.orb_data_cache: Dict[str, List[LiveQuote]] = defaultdict(list)
-
         # Fyers model for REST API
         self.fyers = fyersModel.FyersModel(
             client_id=fyers_config.client_id,
@@ -408,9 +271,9 @@ class ORBFallbackDataService:
         self.stop_event = threading.Event()
 
     def connect(self) -> bool:
-        """Start fallback data service with ORB support"""
+        """Start fallback data service"""
         try:
-            logger.info("Starting ORB fallback REST API data service...")
+            logger.info("Starting fallback REST API data service...")
 
             # Test API connection
             profile = self.fyers.get_profile()
@@ -427,41 +290,30 @@ class ORBFallbackDataService:
             return True
 
         except Exception as e:
-            logger.error(f"ORB Fallback connection error: {e}")
+            logger.error(f"Fallback connection error: {e}")
             return False
 
     def _start_polling(self):
-        """Start ORB-aware polling thread"""
-        self.polling_thread = threading.Thread(target=self._poll_data_orb)
+        """Start polling thread"""
+        self.polling_thread = threading.Thread(target=self._poll_data)
         self.polling_thread.daemon = True
         self.polling_thread.start()
-        logger.info("ORB fallback polling started")
+        logger.info("Fallback polling started")
 
-    def _poll_data_orb(self):
-        """Poll for data with ORB period awareness"""
+    def _poll_data(self):
+        """Poll for data"""
         while not self.stop_event.is_set() and self.is_connected:
             try:
                 if self.subscribed_symbols:
-                    self._fetch_quotes_orb()
-
-                # Adjust polling frequency based on ORB period
-                now = datetime.now()
-                orb_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
-                orb_end = now.replace(hour=9, minute=30, second=0, microsecond=0)
-
-                if orb_start <= now <= orb_end:
-                    # More frequent polling during ORB period
-                    time.sleep(2)
-                else:
-                    # Normal polling outside ORB period
-                    time.sleep(5)
+                    self._fetch_quotes()
+                time.sleep(5)
 
             except Exception as e:
-                logger.error(f"ORB Polling error: {e}")
+                logger.error(f"Polling error: {e}")
                 time.sleep(10)
 
-    def _fetch_quotes_orb(self):
-        """Fetch quotes with ORB processing using centralized symbols"""
+    def _fetch_quotes(self):
+        """Fetch quotes using centralized symbols"""
         try:
             symbols = list(self.subscribed_symbols)
             # Convert to Fyers format using centralized manager
@@ -475,16 +327,16 @@ class ORBFallbackDataService:
                 response = self.fyers.quotes(data)
 
                 if response.get('s') == 'ok':
-                    self._process_rest_quotes_orb(response.get('d', {}))
+                    self._process_rest_quotes(response.get('d', {}))
                 else:
                     logger.debug(f"API response: {response}")
 
                 time.sleep(1)
 
         except Exception as e:
-            logger.debug(f"Fetch ORB quotes error: {e}")
+            logger.debug(f"Fetch quotes error: {e}")
 
-    def _process_rest_quotes_orb(self, data: dict):
+    def _process_rest_quotes(self, data: dict):
         """Process quotes from REST API with centralized symbol conversion"""
         try:
             for fyers_symbol, quote_data in data.items():
@@ -507,9 +359,6 @@ class ORBFallbackDataService:
                     old_quote = self.live_quotes.get(display_symbol)
                     self.live_quotes[display_symbol] = live_quote
 
-                    # ORB processing (similar to WebSocket service)
-                    self._process_orb_data_fallback(display_symbol, live_quote)
-
                     # Only notify callbacks if price changed significantly
                     if not old_quote or abs(old_quote.ltp - live_quote.ltp) > 0.01:
                         for callback in self.data_callbacks:
@@ -519,38 +368,7 @@ class ORBFallbackDataService:
                                 logger.error(f"Callback error: {e}")
 
         except Exception as e:
-            logger.error(f"Process REST ORB quotes error: {e}")
-
-    def _process_orb_data_fallback(self, symbol: str, live_quote: LiveQuote):
-        """Process ORB data in fallback mode"""
-        try:
-            now = datetime.now()
-            orb_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
-            orb_end = now.replace(hour=9, minute=30, second=0, microsecond=0)
-
-            if orb_start <= now <= orb_end:
-                # Cache ORB period data
-                self.orb_data_cache[symbol].append(live_quote)
-
-                # Calculate current opening range
-                orb_quotes = self.orb_data_cache[symbol]
-                if orb_quotes:
-                    current_high = max(q.high_price for q in orb_quotes)
-                    current_low = min(q.low_price for q in orb_quotes)
-
-                    self.opening_ranges[symbol] = OpenRange(
-                        symbol=symbol,
-                        high=current_high,
-                        low=current_low,
-                        range_size=current_high - current_low,
-                        range_pct=((current_high - current_low) / current_low) * 100 if current_low > 0 else 0,
-                        volume=live_quote.volume,
-                        start_time=orb_start,
-                        end_time=orb_end
-                    )
-
-        except Exception as e:
-            logger.error(f"Error processing fallback ORB data for {symbol}: {e}")
+            logger.error(f"Process REST quotes error: {e}")
 
     def subscribe_symbols(self, symbols: List[str]) -> bool:
         """Subscribe to symbols in fallback mode with validation"""
@@ -583,23 +401,15 @@ class ORBFallbackDataService:
         """Get all live quotes"""
         return self.live_quotes.copy()
 
-    def get_opening_range(self, symbol: str) -> Optional[OpenRange]:
-        """Get opening range for symbol"""
-        return self.opening_ranges.get(symbol)
-
-    def get_all_opening_ranges(self) -> Dict[str, OpenRange]:
-        """Get all opening ranges"""
-        return self.opening_ranges.copy()
-
     def disconnect(self):
         """Disconnect fallback service"""
         self.stop_event.set()
         self.is_connected = False
-        logger.info("ORB Fallback service disconnected")
+        logger.info("Fallback service disconnected")
 
 
-# Hybrid service for ORB strategy with centralized symbol management
-class HybridORBDataService:
+# Hybrid service for Heikin Ashi strategy with centralized symbol management
+class HybridDataService:
     """Hybrid service that tries WebSocket first, falls back to REST API with centralized symbols"""
 
     def __init__(self, fyers_config: FyersConfig, ws_config: WebSocketConfig):
@@ -617,36 +427,36 @@ class HybridORBDataService:
         self.data_callbacks = []
 
     def connect(self) -> bool:
-        """Try WebSocket first, fallback to REST API for ORB strategy"""
-        logger.info("Attempting hybrid ORB connection (WebSocket -> REST fallback)")
+        """Try WebSocket first, fallback to REST API for Heikin Ashi strategy"""
+        logger.info("Attempting hybrid connection (WebSocket -> REST fallback)")
 
         # Try WebSocket first
         try:
-            self.primary_service = ORBWebSocketService(self.fyers_config, self.ws_config)
+            self.primary_service = FyersWebSocketService(self.fyers_config, self.ws_config)
 
             if self.primary_service.connect():
-                logger.info("Using WebSocket service for ORB strategy")
+                logger.info("Using WebSocket service for Heikin Ashi strategy")
                 self.is_connected = True
                 self._setup_callbacks(self.primary_service)
                 return True
         except Exception as e:
-            logger.warning(f"ORB WebSocket failed: {e}")
+            logger.warning(f"WebSocket failed: {e}")
 
         # Fallback to REST API
         try:
-            logger.info("Falling back to REST API polling for ORB strategy...")
-            self.fallback_service = ORBFallbackDataService(self.fyers_config, self.ws_config)
+            logger.info("Falling back to REST API polling for Heikin Ashi strategy...")
+            self.fallback_service = FyersRESTDataService(self.fyers_config, self.ws_config)
 
             if self.fallback_service.connect():
-                logger.info("Using REST API fallback for ORB strategy")
+                logger.info("Using REST API fallback for Heikin Ashi strategy")
                 self.using_fallback = True
                 self.is_connected = True
                 self._setup_callbacks(self.fallback_service)
                 return True
         except Exception as e:
-            logger.error(f"ORB Fallback also failed: {e}")
+            logger.error(f"Fallback also failed: {e}")
 
-        logger.error("All ORB connection methods failed")
+        logger.error("All connection methods failed")
         return False
 
     def _setup_callbacks(self, service):
@@ -681,23 +491,6 @@ class HybridORBDataService:
         """Get live quote"""
         active_service = self.fallback_service if self.using_fallback else self.primary_service
         return active_service.get_live_quote(symbol) if active_service else None
-
-    def get_opening_range(self, symbol: str) -> Optional[OpenRange]:
-        """Get opening range"""
-        active_service = self.fallback_service if self.using_fallback else self.primary_service
-        return active_service.get_opening_range(symbol) if active_service else None
-
-    def get_all_opening_ranges(self) -> Dict[str, OpenRange]:
-        """Get all opening ranges"""
-        active_service = self.fallback_service if self.using_fallback else self.primary_service
-        return active_service.get_all_opening_ranges() if active_service else {}
-
-    def is_breakout_detected(self, symbol: str, current_price: float) -> tuple:
-        """Check for breakout using active service"""
-        active_service = self.fallback_service if self.using_fallback else self.primary_service
-        if hasattr(active_service, 'is_breakout_detected'):
-            return active_service.is_breakout_detected(symbol, current_price)
-        return False, None, None
 
     def disconnect(self):
         """Disconnect active service"""

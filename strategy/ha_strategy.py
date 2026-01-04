@@ -20,7 +20,7 @@ from models.trading_models import (
     StrategyMetrics, MarketState, create_position_from_signal,
     create_trade_result_from_position, validate_signal_quality, calculate_portfolio_risk
 )
-from services.fyers_websocket_service import HybridORBDataService
+from services.fyers_websocket_service import HybridDataService
 from services.analysis_service import HATechnicalAnalysisService
 from services.market_timing_service import MarketTimingService
 from strategy.order_manager import OrderManager
@@ -44,7 +44,7 @@ class HeikinAshiStrategy:
         self.ws_config = ws_config
 
         # Services
-        self.data_service = HybridORBDataService(fyers_config, ws_config)
+        self.data_service = HybridDataService(fyers_config, ws_config)
         self.analysis_service = HATechnicalAnalysisService(self.data_service)
         self.timing_service = MarketTimingService(trading_config)
 
