@@ -30,15 +30,15 @@ This project implements a sophisticated Heikin Ashi trading strategy that combin
 
 ## Features
 
-- ✅ Real-time market data via Fyers WebSocket API
-- ✅ Advanced Heikin Ashi calculation with EMA smoothing
-- ✅ Multi-indicator confirmation (ADX, ATR, Volume)
-- ✅ Dynamic position sizing based on risk percentage
-- ✅ ATR-based trailing stops
-- ✅ Breakeven protection
-- ✅ Comprehensive logging and monitoring
-- ✅ Enhanced authentication with auto-refresh
-- ✅ Paper trading support
+-  Real-time market data via Fyers WebSocket API
+-  Advanced Heikin Ashi calculation with EMA smoothing
+-  Multi-indicator confirmation (ADX, ATR, Volume)
+-  Dynamic position sizing based on risk percentage
+-  ATR-based trailing stops
+-  Breakeven protection
+-  Comprehensive logging and monitoring
+-  Enhanced authentication with auto-refresh
+-  Paper trading support
 
 ## Installation
 
@@ -192,13 +192,13 @@ Log levels can be configured via `LOG_LEVEL` environment variable.
 
 ## Important Notes
 
-⚠️ **Risk Warning**: Trading involves risk. This strategy is provided for educational purposes. Start with paper trading or small amounts.
+ **Risk Warning**: Trading involves risk. This strategy is provided for educational purposes. Start with paper trading or small amounts.
 
-⚠️ **Testing**: Thoroughly backtest and paper trade before live trading.
+ **Testing**: Thoroughly backtest and paper trade before live trading.
 
-⚠️ **Monitoring**: Closely monitor the strategy during initial weeks.
+ **Monitoring**: Closely monitor the strategy during initial weeks.
 
-⚠️ **Market Conditions**: Adjust parameters based on market conditions.
+ **Market Conditions**: Adjust parameters based on market conditions.
 
 ## Architecture Reference
 
@@ -233,6 +233,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-**Happy Trading! 📈**
+**Happy Trading! **
 
 *Remember to trade responsibly and always manage your risk!*

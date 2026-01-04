@@ -196,22 +196,22 @@ def show_strategy_help():
     print("HEIKIN ASHI TRADING STRATEGY - CONFIGURATION GUIDE")
     print("=" * 80)
 
-    print("\n📊 STRATEGY OVERVIEW:")
+    print("\n STRATEGY OVERVIEW:")
     print("• Uses Heikin Ashi candles for trend identification")
     print("• ADX for trend strength confirmation (>25)")
     print("• ATR for dynamic trailing stops")
     print("• Volume analysis for signal validation")
     print("• Monitors 40+ stocks across multiple sectors")
 
-    print("\n⚙️ CONFIGURATION PARAMETERS:")
+    print("\n CONFIGURATION PARAMETERS:")
     print("Edit .env file or set environment variables:")
 
-    print("\n💼 Portfolio Settings:")
+    print("\n Portfolio Settings:")
     print("  PORTFOLIO_VALUE=100000         # Total portfolio value (Rs.1L)")
     print("  RISK_PER_TRADE=1.0            # Risk per trade (1% of portfolio)")
     print("  MAX_POSITIONS=3               # Maximum concurrent positions")
 
-    print("\n📈 Heikin Ashi Strategy Parameters:")
+    print("\n Heikin Ashi Strategy Parameters:")
     print("  HA_SMOOTHING=3                # EMA smoothing period for HA candles")
     print("  CONSECUTIVE_CANDLES=2         # Required consecutive bullish candles")
     print("  ADX_PERIOD=14                 # ADX calculation period")
@@ -220,29 +220,29 @@ def show_strategy_help():
     print("  ATR_MULTIPLIER=2.0            # ATR multiplier for trailing stops")
     print("  VOLUME_PERCENTILE=60.0        # Volume percentile threshold")
 
-    print("\n🛡️ Risk Management:")
+    print("\n Risk Management:")
     print("  STOP_LOSS_PCT=1.5             # Initial stop loss percentage")
     print("  TARGET_MULTIPLIER=2.0         # Target as multiple of risk (1:2 ratio)")
     print("  TRAILING_STOP_PCT=0.5         # Trailing stop adjustment percentage")
     print("  BREAKEVEN_PROFIT_PCT=1.0      # Move to breakeven at 1% profit")
     print("  ENABLE_TRAILING_STOPS=true    # Enable dynamic trailing stops")
 
-    print("\n🎯 Signal Filtering:")
+    print("\n Signal Filtering:")
     print("  MIN_CONFIDENCE=0.65           # Minimum signal confidence (65%)")
     print("  MIN_VOLUME_RATIO=1.5          # Volume vs average ratio")
 
-    print("\n🔧 System Settings:")
+    print("\n System Settings:")
     print("  MONITORING_INTERVAL=1         # Strategy monitoring cycle (seconds)")
     print("  TICK_INTERVAL=1min            # Candle timeframe (1min, 5min, etc.)")
     print("  LOG_LEVEL=INFO                # Logging verbosity")
 
-    print("\n📊 EXPECTED PERFORMANCE:")
+    print("\n EXPECTED PERFORMANCE:")
     print("  Daily Signals: 3-8 high-quality setups")
     print("  Win Rate Target: 60-70%")
     print("  Risk-Reward: 1:2 ratio (1.5% risk, 3% target)")
     print("  Monthly Target: 15-25% portfolio growth")
 
-    print("\n⚠️  IMPORTANT NOTES:")
+    print("\n  IMPORTANT NOTES:")
     print("  • Start with paper trading or small amounts")
     print("  • Monitor closely during initial weeks")
     print("  • Adjust parameters based on market conditions")
@@ -260,12 +260,12 @@ def show_authentication_status():
     access_token = os.environ.get('FYERS_ACCESS_TOKEN')
     refresh_token = os.environ.get('FYERS_REFRESH_TOKEN')
 
-    print(f"📝 Credential Status:")
-    print(f"  Client ID: {'✅ Set' if client_id else '❌ Missing'}")
-    print(f"  Access Token: {'✅ Set' if access_token else '❌ Missing'}")
-    print(f"  Refresh Token: {'✅ Set' if refresh_token else '❌ Missing'}")
+    print(f" Credential Status:")
+    print(f"  Client ID: {' Set' if client_id else ' Missing'}")
+    print(f"  Access Token: {' Set' if access_token else ' Missing'}")
+    print(f"  Refresh Token: {' Set' if refresh_token else ' Missing'}")
 
-    print(f"\n🔧 Available Commands:")
+    print(f"\n Available Commands:")
     print(f"  Setup Authentication: python main.py auth")
     print(f"  Test Authentication: python main.py test-auth")
     print(f"  Update Trading PIN: python main.py update-pin")
@@ -285,19 +285,19 @@ def main():
         command = sys.argv[1].lower()
 
         if command == "run":
-            logger.info("🚀 Starting Heikin Ashi Strategy")
+            logger.info(" Starting Heikin Ashi Strategy")
             asyncio.run(run_ha_strategy())
 
         elif command == "auth":
-            print("🔐 Setting up Fyers API Authentication")
+            print(" Setting up Fyers API Authentication")
             setup_auth_only()
 
         elif command == "test-auth":
-            print("🔍 Testing Fyers API Authentication")
+            print(" Testing Fyers API Authentication")
             test_authentication()
 
         elif command == "update-pin":
-            print("🔑 Updating Trading PIN")
+            print(" Updating Trading PIN")
             update_pin_only()
 
         elif command == "status":
@@ -307,8 +307,8 @@ def main():
             show_strategy_help()
 
         else:
-            print(f"❌ Unknown command: {command}")
-            print("\n📋 Available commands:")
+            print(f" Unknown command: {command}")
+            print("\n Available commands:")
             commands = [
                 ("run", "Run the Heikin Ashi trading strategy"),
                 ("auth", "Setup Fyers API authentication"),
@@ -323,18 +323,18 @@ def main():
 
     else:
         # Interactive menu
-        print("📊 Advanced Heikin Ashi algorithmic trading with real-time data")
-        print("🛡️  Comprehensive risk management and position monitoring")
+        print(" Advanced Heikin Ashi algorithmic trading with real-time data")
+        print(" Comprehensive risk management and position monitoring")
         print("\nSelect an option:")
 
         menu_options = [
-            ("1", "🚀 Run Heikin Ashi Trading Strategy"),
-            ("2", "🔐 Setup Fyers Authentication"),
-            ("3", "🔍 Test Authentication"),
-            ("4", "🔑 Update Trading PIN"),
-            ("5", "📊 Show Authentication Status"),
-            ("6", "📖 Strategy Configuration Guide"),
-            ("7", "❌ Exit")
+            ("1", " Run Heikin Ashi Trading Strategy"),
+            ("2", " Setup Fyers Authentication"),
+            ("3", " Test Authentication"),
+            ("4", " Update Trading PIN"),
+            ("5", " Show Authentication Status"),
+            ("6", " Strategy Configuration Guide"),
+            ("7", " Exit")
         ]
 
         for option, description in menu_options:
@@ -343,19 +343,19 @@ def main():
         choice = input(f"\nSelect option (1-{len(menu_options)}): ").strip()
 
         if choice == "1":
-            logger.info("🚀 Starting Heikin Ashi Strategy")
+            logger.info(" Starting Heikin Ashi Strategy")
             asyncio.run(run_ha_strategy())
 
         elif choice == "2":
-            print("🔐 Setting up Fyers API Authentication")
+            print(" Setting up Fyers API Authentication")
             setup_auth_only()
 
         elif choice == "3":
-            print("🔍 Testing Fyers API Authentication")
+            print(" Testing Fyers API Authentication")
             test_authentication()
 
         elif choice == "4":
-            print("🔑 Updating Trading PIN")
+            print(" Updating Trading PIN")
             update_pin_only()
 
         elif choice == "5":
@@ -365,11 +365,11 @@ def main():
             show_strategy_help()
 
         elif choice == "7":
-            print("\n👋 Goodbye! Happy Trading! 📈")
-            print("⚠️  Remember: Trade responsibly and manage your risk!")
+            print("\n Goodbye! Happy Trading! ")
+            print("  Remember: Trade responsibly and manage your risk!")
 
         else:
-            print(f"❌ Invalid choice: {choice}")
+            print(f" Invalid choice: {choice}")
             print("Please select a number between 1 and 7")
 
 
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n\n⚠️  Interrupted by user - Goodbye!")
+        print(f"\n\n Interrupted by user - Goodbye!")
     except Exception as e:
         logger.error(f"Fatal error in main execution: {e}")
         logger.exception("Full error details:")
