@@ -163,6 +163,34 @@ async def run_ha_strategy():
 
         logger.info("Authentication successful - Access token validated")
 
+        # Generate daily symbols before starting strategy
+        logger.info("=" * 60)
+        logger.info("GENERATING DAILY OPTION SYMBOLS")
+        logger.info("=" * 60)
+        try:
+            from utils.symbol_manager import SymbolManager
+            symbol_manager = SymbolManager()
+
+            if symbol_manager.initialize_generator(config_dict['fyers_config'].client_id, config_dict['fyers_config'].access_token):
+                symbols = symbol_manager.get_or_generate_symbols(
+                    indices=['NIFTY', 'BANKNIFTY'],
+                    num_strikes_otm=1,
+                    force_regenerate=True
+                )
+
+                if symbols:
+                    logger.info(f"Successfully generated {len(symbols)} symbols")
+                    logger.info(f"Symbols saved to daily_symbols.json")
+                else:
+                    logger.warning("No symbols generated - strategy will use default symbols")
+            else:
+                logger.warning("Symbol generator initialization failed - strategy will use default symbols")
+        except Exception as e:
+            logger.error(f"Error during symbol generation: {e}")
+            logger.warning("Continuing with default symbols...")
+
+        logger.info("=" * 60)
+
         # Log strategy configuration
         logger.info(f"Portfolio Value: Rs.{strategy_config.portfolio_value:,}")
         logger.info(f"Risk per Trade: {strategy_config.risk_per_trade_pct}%")
