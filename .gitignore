@@ -51,6 +51,9 @@ data/
 *.db
 *.csv
 
+# Symbol cache
+daily_symbols.json
+
 # Temporary files
 tmp/
 temp/

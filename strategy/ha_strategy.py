@@ -24,6 +24,9 @@ from services.fyers_websocket_service import HybridORBDataService
 from services.analysis_service import HATechnicalAnalysisService
 from services.market_timing_service import MarketTimingService
 from strategy.order_manager import OrderManager
+from strategy.paper_order_manager import PaperOrderManager
+from utils.symbol_manager import SymbolManager
+from utils.paper_trade_logger import PaperTradeLogger
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +47,22 @@ class HeikinAshiStrategy:
         self.data_service = HybridORBDataService(fyers_config, ws_config)
         self.analysis_service = HATechnicalAnalysisService(self.data_service)
         self.timing_service = MarketTimingService(trading_config)
-        self.order_manager = OrderManager(fyers_config)
+
+        # Initialize order manager based on paper trading mode
+        if trading_config.enable_paper_trading:
+            logger.info("Initializing PAPER TRADING mode - No real orders will be placed")
+            self.paper_logger = PaperTradeLogger()
+            self.order_manager = PaperOrderManager(fyers_config, self.paper_logger)
+            self.is_paper_trading = True
+        else:
+            logger.info("Initializing LIVE TRADING mode")
+            self.order_manager = OrderManager(fyers_config)
+            self.paper_logger = None
+            self.is_paper_trading = False
+
+        # Symbol manager for ATM option generation (optional)
+        self.symbol_manager = SymbolManager()
+        self.use_auto_symbol_generation = False  # Can be enabled via config
 
         # Configure analysis service with strategy parameters
         self.analysis_service.ha_smoothing = strategy_config.ha_smoothing
@@ -459,19 +477,18 @@ class HeikinAshiStrategy:
             # Add to completed trades
             self.completed_trades.append(trade_result)
 
+            # Log to paper trade logger if in paper mode
+            if self.is_paper_trading and self.paper_logger:
+                self.paper_logger.log_exit(trade_result)
+
             # Remove from positions
             del self.positions[symbol]
 
             logger.info(f"Closed position: {symbol} @ Rs.{exit_price:.2f}, "
                         f"Reason: {exit_reason}, P&L: Rs.{trade_result.net_pnl:.2f}")
 
-            # Place exit order (paper trading)
-            await self.order_manager.place_order(
-                symbol=symbol,
-                quantity=position.quantity,
-                price=exit_price,
-                side="SELL" if position.signal_type == SignalType.LONG else "BUY"
-            )
+            # Place exit order
+            await self.order_manager.place_exit_order(position, exit_price)
 
         except Exception as e:
             logger.error(f"Error closing position for {symbol}: {e}")
