@@ -1,8 +1,8 @@
 # services/market_timing_service.py
 
 """
-Enhanced Market Timing Service for Heikin Ashi Strategy
-Handles market hours and trading windows
+Market Timing Service for Heikin Ashi Strategy
+Handles market hours, trading windows, and warmup periods
 """
 
 from datetime import datetime, time
@@ -72,40 +72,40 @@ class MarketTimingService:
 
         return market_start <= now <= market_end
 
-    def is_orb_period(self) -> bool:
-        """Check if we're currently in the ORB period (9:15 - 9:30 AM)"""
+    def is_warmup_period(self) -> bool:
+        """Check if we're currently in the warmup period (9:15 - 9:45 AM)"""
         now = datetime.now(IST)
 
         if not self.is_trading_day(now):
             return False
 
-        orb_start = now.replace(
+        warmup_start = now.replace(
             hour=self.config.market_start_hour,
             minute=self.config.market_start_minute,
             second=0,
             microsecond=0
         )
 
-        orb_end = now.replace(
+        warmup_end = now.replace(
             hour=self.config.market_start_hour,
-            minute=self.config.orb_end_minute,
+            minute=self.config.signal_start_minute,
             second=0,
             microsecond=0
         )
 
-        return orb_start <= now <= orb_end
+        return warmup_start <= now <= warmup_end
 
     def is_signal_generation_time(self) -> bool:
-        """Check if within signal generation window (after ORB until 2 PM)"""
+        """Check if within signal generation window (after warmup until signal cutoff)"""
         now = datetime.now(IST)
 
         if not self.is_trading_day(now):
             return False
 
-        # Must be after ORB period
-        orb_end = now.replace(
+        # Must be after warmup period
+        signal_start = now.replace(
             hour=self.config.market_start_hour,
-            minute=self.config.orb_end_minute,
+            minute=self.config.signal_start_minute,
             second=0,
             microsecond=0
         )
@@ -118,27 +118,27 @@ class MarketTimingService:
             microsecond=0
         )
 
-        return orb_end < now <= signal_cutoff
+        return signal_start < now <= signal_cutoff
 
-    def get_orb_period_bounds(self) -> Tuple[datetime, datetime]:
-        """Get ORB period start and end times for today"""
+    def get_warmup_period_bounds(self) -> Tuple[datetime, datetime]:
+        """Get warmup period start and end times for today"""
         now = datetime.now(IST)
 
-        orb_start = now.replace(
+        warmup_start = now.replace(
             hour=self.config.market_start_hour,
             minute=self.config.market_start_minute,
             second=0,
             microsecond=0
         )
 
-        orb_end = now.replace(
+        warmup_end = now.replace(
             hour=self.config.market_start_hour,
-            minute=self.config.orb_end_minute,
+            minute=self.config.signal_start_minute,
             second=0,
             microsecond=0
         )
 
-        return orb_start, orb_end
+        return warmup_start, warmup_end
 
     def get_trading_session_bounds(self) -> Tuple[datetime, datetime]:
         """Get trading session start and end times for today"""
@@ -195,20 +195,20 @@ class MarketTimingService:
         # Market closed for the day
         return None
 
-    def time_until_orb_end(self) -> Optional[int]:
-        """Get seconds until ORB period ends (None if not in ORB period)"""
-        if not self.is_orb_period():
+    def time_until_warmup_end(self) -> Optional[int]:
+        """Get seconds until warmup period ends (None if not in warmup period)"""
+        if not self.is_warmup_period():
             return None
 
         now = datetime.now(IST)
-        orb_end = now.replace(
+        warmup_end = now.replace(
             hour=self.config.market_start_hour,
-            minute=self.config.orb_end_minute,
+            minute=self.config.signal_start_minute,
             second=0,
             microsecond=0
         )
 
-        return int((orb_end - now).total_seconds())
+        return int((warmup_end - now).total_seconds())
 
     def time_until_market_close(self) -> Optional[int]:
         """Get seconds until market closes (None if market is closed)"""
@@ -259,8 +259,8 @@ class MarketTimingService:
             else:
                 return "POST_MARKET"
 
-        if self.is_orb_period():
-            return "ORB_PERIOD"
+        if self.is_warmup_period():
+            return "WARMUP_PERIOD"
 
         if self.is_signal_generation_time():
             return "SIGNAL_GENERATION"
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     print("=" * 40)
     print(f"Is trading day: {timing_service.is_trading_day()}")
     print(f"Is trading time: {timing_service.is_trading_time()}")
-    print(f"Is ORB period: {timing_service.is_orb_period()}")
+    print(f"Is warmup period: {timing_service.is_warmup_period()}")
     print(f"Is signal generation time: {timing_service.is_signal_generation_time()}")
     print(f"Current market phase: {timing_service.get_current_market_phase()}")
     print(f"Trading session progress: {timing_service.get_trading_session_progress():.1f}%")
@@ -350,6 +350,6 @@ if __name__ == "__main__":
     if time_to_close:
         print(f"Time until market close: {timing_service.format_time_remaining(time_to_close)}")
 
-    time_to_orb_end = timing_service.time_until_orb_end()
-    if time_to_orb_end:
-        print(f"Time until ORB end: {timing_service.format_time_remaining(time_to_orb_end)}")
+    time_to_warmup_end = timing_service.time_until_warmup_end()
+    if time_to_warmup_end:
+        print(f"Time until warmup end: {timing_service.format_time_remaining(time_to_warmup_end)}")

@@ -1,7 +1,7 @@
 # config/websocket_config.py
 
 """
-WebSocket Configuration for ORB Trading Strategy
+WebSocket Configuration for Heikin Ashi Trading Strategy
 Comprehensive configuration for Fyers WebSocket connections with fallback options
 """
 
@@ -28,7 +28,7 @@ class ReconnectionStrategy(Enum):
 
 @dataclass
 class WebSocketConfig:
-    """Comprehensive WebSocket configuration for ORB strategy"""
+    """Comprehensive WebSocket configuration for Heikin Ashi strategy"""
 
     # Core WebSocket Settings
     websocket_url: str = "wss://api-t1.fyers.in/socket/v2/dataSock"
@@ -56,8 +56,8 @@ class WebSocketConfig:
     max_message_size: int = 1048576  # Maximum message size (1MB)
     queue_size: int = 1000  # Internal message queue size
 
-    # ORB Strategy Specific Settings
-    orb_data_retention_minutes: int = 30  # How long to retain ORB period data
+    # Strategy Specific Settings
+    data_retention_minutes: int = 60  # How long to retain historical data for analysis
     enable_data_validation: bool = True  # Validate incoming data
     symbol_subscription_batch_size: int = 25  # Symbols per subscription batch
 
@@ -111,8 +111,8 @@ class WebSocketConfig:
         self.buffer_size = int(os.environ.get('WS_BUFFER_SIZE', self.buffer_size))
         self.queue_size = int(os.environ.get('WS_QUEUE_SIZE', self.queue_size))
 
-        # ORB specific settings
-        self.orb_data_retention_minutes = int(os.environ.get('ORB_DATA_RETENTION_MINUTES', self.orb_data_retention_minutes))
+        # Strategy specific settings
+        self.data_retention_minutes = int(os.environ.get('DATA_RETENTION_MINUTES', self.data_retention_minutes))
         self.symbol_subscription_batch_size = int(os.environ.get('WS_SYMBOL_BATCH_SIZE', self.symbol_subscription_batch_size))
 
         # Fallback settings
@@ -165,9 +165,9 @@ class WebSocketConfig:
         if self.queue_size < 100:
             raise ValueError("Queue size must be at least 100")
 
-        # Validate ORB settings
-        if self.orb_data_retention_minutes < 15:
-            raise ValueError("ORB data retention must be at least 15 minutes")
+        # Validate strategy settings
+        if self.data_retention_minutes < 15:
+            raise ValueError("Data retention must be at least 15 minutes")
 
         if self.symbol_subscription_batch_size < 1 or self.symbol_subscription_batch_size > 50:
             raise ValueError("Symbol subscription batch size must be between 1 and 50")
@@ -191,7 +191,7 @@ class WebSocketConfig:
         # Set custom headers if not provided
         if self.custom_headers is None:
             self.custom_headers = {
-                'User-Agent': 'ORB-Trading-Strategy/2.0',
+                'User-Agent': 'HeikinAshi-Trading-Strategy/2.0',
                 'Accept': 'application/json',
                 'Connection': 'Upgrade'
             }
@@ -274,7 +274,7 @@ class WebSocketConfig:
             'enable_duplicate_filtering': self.enable_duplicate_filtering,
             'enable_stale_detection': self.enable_stale_data_detection,
             'max_data_age_seconds': self.max_data_age_seconds,
-            'orb_data_retention_minutes': self.orb_data_retention_minutes
+            'data_retention_minutes': self.data_retention_minutes
         }
 
     def to_dict(self) -> Dict[str, Any]:
@@ -382,8 +382,8 @@ class WebSocketProfiles:
         )
 
     @staticmethod
-    def orb_optimized() -> WebSocketConfig:
-        """ORB strategy optimized profile"""
+    def heikin_ashi_optimized() -> WebSocketConfig:
+        """Heikin Ashi strategy optimized profile"""
         return WebSocketConfig(
             reconnect_interval=5,
             max_reconnect_attempts=10,
@@ -394,7 +394,7 @@ class WebSocketProfiles:
             enable_compression=True,
             buffer_size=8192,
             queue_size=1000,
-            orb_data_retention_minutes=30,
+            data_retention_minutes=60,
             enable_data_validation=True,
             enable_duplicate_filtering=True,
             symbol_subscription_batch_size=25,
@@ -405,14 +405,14 @@ class WebSocketProfiles:
 
 
 # Factory function to create configuration based on profile
-def create_websocket_config(profile: str = "orb_optimized") -> WebSocketConfig:
+def create_websocket_config(profile: str = "heikin_ashi_optimized") -> WebSocketConfig:
     """Create WebSocket configuration based on profile name"""
     profile_map = {
         'development': WebSocketProfiles.development,
         'production': WebSocketProfiles.production,
         'high_frequency': WebSocketProfiles.high_frequency,
         'low_bandwidth': WebSocketProfiles.low_bandwidth,
-        'orb_optimized': WebSocketProfiles.orb_optimized
+        'heikin_ashi_optimized': WebSocketProfiles.heikin_ashi_optimized
     }
 
     profile_func = profile_map.get(profile.lower())
@@ -439,7 +439,7 @@ if __name__ == "__main__":
 
     # Test different profiles
     print(f"\nTesting Configuration Profiles:")
-    profiles = ['development', 'production', 'high_frequency', 'low_bandwidth', 'orb_optimized']
+    profiles = ['development', 'production', 'high_frequency', 'low_bandwidth', 'heikin_ashi_optimized']
 
     for profile_name in profiles:
         try:
@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
     # Test reconnect delay calculation
     print(f"\nReconnect Delay Testing (Exponential Backoff):")
-    config = WebSocketProfiles.orb_optimized()
+    config = WebSocketProfiles.heikin_ashi_optimized()
     for attempt in range(1, 6):
         delay = config.get_reconnect_delay(attempt)
         print(f"  Attempt {attempt}: {delay} seconds")

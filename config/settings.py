@@ -67,7 +67,7 @@ class TradingConfig:
     market_end_minute: int = 30
 
     # Strategy timing
-    orb_end_minute: int = 45  # End of Opening Range period (9:45 AM) - signals generated after this
+    signal_start_minute: int = 45  # Warmup period end (9:45 AM) - signals generated after this
     signal_generation_end_hour: int = 15  # Stop generating signals at 3:00 PM
     signal_generation_end_minute: int = 0
     square_off_hour: int = 15  # Square off time

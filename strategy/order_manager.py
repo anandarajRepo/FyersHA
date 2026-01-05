@@ -1,7 +1,7 @@
 # strategy/order_manager.py
 
 """
-Order Management System for ORB Strategy
+Order Management System for Heikin Ashi Strategy
 Handles actual order placement with Fyers broker
 """
 
@@ -11,7 +11,7 @@ from datetime import datetime
 from fyers_apiv3 import fyersModel
 
 from config.settings import FyersConfig, SignalType
-from models.trading_models import Position, ORBSignal
+from models.trading_models import Position
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class OrderManager:
                 "qty": abs(position.quantity),
                 "type": 2,  # Market order
                 "side": side,
-                "productType": "INTRADAY",  # Intraday for ORB
+                "productType": "INTRADAY",  # Intraday trading
                 "limitPrice": 0,
                 "stopPrice": 0,
                 "validity": "DAY",

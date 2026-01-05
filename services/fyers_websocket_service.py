@@ -21,7 +21,7 @@ from fyers_apiv3.FyersWebsocket import data_ws
 from config.settings import FyersConfig
 from config.websocket_config import WebSocketConfig
 from config.symbols import symbol_manager, convert_to_fyers_format, convert_from_fyers_format
-from models.trading_models import LiveQuote, OpenRange
+from models.trading_models import LiveQuote
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +281,7 @@ class FyersRESTDataService:
                 logger.error("Fyers API authentication failed")
                 return False
 
-            logger.info(f"Connected to Fyers API for ORB strategy - User: {profile.get('data', {}).get('name', 'Unknown')}")
+            logger.info(f"Connected to Fyers API for Heikin Ashi strategy - User: {profile.get('data', {}).get('name', 'Unknown')}")
 
             # Start polling
             self.is_connected = True

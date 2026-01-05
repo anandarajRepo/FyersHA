@@ -1,7 +1,7 @@
 # utils/enhanced_auth_helper.py
 
 """
-Enhanced Fyers Authentication Helper for ORB Trading Strategy
+Enhanced Fyers Authentication Helper for Heikin Ashi Trading Strategy
 Provides comprehensive authentication with auto-refresh, PIN support, and error handling
 """
 
