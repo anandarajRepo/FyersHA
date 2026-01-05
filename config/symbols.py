@@ -30,7 +30,6 @@ class HASymbolManager:
             "WIPRO": "NSE:WIPRO-EQ",
             "HCLTECH": "NSE:HCLTECH-EQ",
             "TECHM": "NSE:TECHM-EQ",
-            "LTI": "NSE:LTI-EQ",
 
             # Banking
             "HDFCBANK": "NSE:HDFCBANK-EQ",
@@ -42,7 +41,6 @@ class HASymbolManager:
 
             # Auto
             "MARUTI": "NSE:MARUTI-EQ",
-            "TATAMOTORS": "NSE:TATAMOTORS-EQ",
             "BAJAJ-AUTO": "NSE:BAJAJ-AUTO-EQ",
             "M&M": "NSE:M&M-EQ",
             "HEROMOTOCO": "NSE:HEROMOTOCO-EQ",
