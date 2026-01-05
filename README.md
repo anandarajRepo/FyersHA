@@ -202,7 +202,7 @@ Log levels can be configured via `LOG_LEVEL` environment variable.
 
 ## Architecture Reference
 
-This project follows the architecture from the FyersORB project:
+This project follows modern Python trading system architecture:
 - **Configuration Management**: Centralized settings and parameters
 - **Data Models**: Type-safe trading models
 - **Data Services**: Real-time WebSocket data integration
