@@ -439,24 +439,23 @@ class HeikinAshiStrategy:
             # Create position
             position = create_position_from_signal(signal, quantity)
 
-            # Place order (paper trading for now)
-            order_id = await self.order_manager.place_order(
-                symbol=signal.symbol,
-                quantity=quantity,
-                price=signal.entry_price,
-                side="BUY" if signal.signal_type == SignalType.LONG else "SELL"
-            )
+            # Place entry order using the correct method
+            success = await self.order_manager.place_entry_order(position)
 
-            if order_id:
-                position.order_id = order_id
+            if success:
+                # Add position to tracking
                 self.positions[signal.symbol] = position
                 self.signals_generated_today.append(signal)
 
                 logger.info(f"Entered position: {signal.symbol} {signal.signal_type.value} "
                             f"@ Rs.{signal.entry_price:.2f}, Qty: {quantity}, "
                             f"SL: Rs.{signal.stop_loss:.2f}, Target: Rs.{signal.target_price:.2f}")
+
+                # Place stop loss and target orders
+                await self.order_manager.place_stop_loss_order(position)
+                await self.order_manager.place_target_order(position)
             else:
-                logger.error(f"Failed to place order for {signal.symbol}")
+                logger.error(f"Failed to place entry order for {signal.symbol}")
 
         except Exception as e:
             logger.error(f"Error entering position for {signal.symbol}: {e}")
