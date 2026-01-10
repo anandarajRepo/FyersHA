@@ -70,6 +70,17 @@ class HeikinAshiStrategy:
         self.analysis_service.atr_period = strategy_config.atr_period
         self.analysis_service.volume_percentile = strategy_config.volume_percentile
 
+        # Configure Enhanced Multi-Confirmation parameters
+        self.analysis_service.rsi_period = strategy_config.rsi_period
+        self.analysis_service.rsi_overbought = strategy_config.rsi_overbought
+        self.analysis_service.rsi_oversold = strategy_config.rsi_oversold
+        self.analysis_service.macd_fast = strategy_config.macd_fast
+        self.analysis_service.macd_slow = strategy_config.macd_slow
+        self.analysis_service.macd_signal = strategy_config.macd_signal
+        self.analysis_service.supertrend_period = strategy_config.supertrend_period
+        self.analysis_service.supertrend_multiplier = strategy_config.supertrend_multiplier
+        self.analysis_service.ema_trend_period = strategy_config.ema_trend_period
+
         # Strategy state
         self.positions: Dict[str, Position] = {}
         self.completed_trades: List[TradeResult] = []
@@ -133,6 +144,16 @@ class HeikinAshiStrategy:
             logger.info(f"  ADX Period: {self.strategy_config.adx_period}, Threshold: {self.strategy_config.adx_threshold}")
             logger.info(f"  ATR Period: {self.strategy_config.atr_period}, Multiplier: {self.strategy_config.atr_multiplier}")
 
+            # Log Enhanced Multi-Confirmation status
+            if self.strategy_config.enable_enhanced_confirmation:
+                logger.info(f"  Enhanced Multi-Confirmation: ENABLED")
+                logger.info(f"    RSI Period: {self.strategy_config.rsi_period} (Range: {self.strategy_config.rsi_oversold}-{self.strategy_config.rsi_overbought})")
+                logger.info(f"    MACD: {self.strategy_config.macd_fast}/{self.strategy_config.macd_slow}/{self.strategy_config.macd_signal}")
+                logger.info(f"    Supertrend: Period={self.strategy_config.supertrend_period}, Multiplier={self.strategy_config.supertrend_multiplier}")
+                logger.info(f"    EMA Trend: {self.strategy_config.ema_trend_period}-period")
+            else:
+                logger.info(f"  Enhanced Multi-Confirmation: DISABLED (using standard entry logic)")
+
             return True
 
         except Exception as e:
@@ -178,10 +199,17 @@ class HeikinAshiStrategy:
                     index=[live_quote.timestamp])
             else:
                 df = self.symbol_dataframes[symbol]
-                # Keep last N candles (e.g., 100 for indicators)
-                max_candles = max(self.strategy_config.adx_period,
-                                  self.strategy_config.atr_period,
-                                  self.strategy_config.ha_smoothing) * 3
+                # Keep last N candles (more for enhanced mode with EMA-200)
+                if self.strategy_config.enable_enhanced_confirmation:
+                    max_candles = max(
+                        self.strategy_config.ema_trend_period + 50,  # 250 for EMA-200 + buffer
+                        self.strategy_config.adx_period * 3,
+                        self.strategy_config.atr_period * 3
+                    )
+                else:
+                    max_candles = max(self.strategy_config.adx_period,
+                                      self.strategy_config.atr_period,
+                                      self.strategy_config.ha_smoothing) * 3
 
                 new_row = pd.DataFrame([new_data], index=[live_quote.timestamp])
                 df = pd.concat([df, new_row])
@@ -310,7 +338,10 @@ class HeikinAshiStrategy:
                 if symbol in self.symbol_dataframes:
                     df = self.symbol_dataframes[symbol]
                     if len(df) > 0:
-                        df_processed = self.analysis_service.process_symbol_data(symbol, df.copy())
+                        df_processed = self.analysis_service.process_symbol_data(
+                            symbol, df.copy(),
+                            enable_enhanced=self.strategy_config.enable_enhanced_confirmation
+                        )
                         if len(df_processed) > 0 and df_processed.iloc[-1].get('sell_signal', False):
                             positions_to_close.append((symbol, current_price, "HA_BEARISH"))
                             continue
@@ -335,14 +366,28 @@ class HeikinAshiStrategy:
                     continue
 
                 df = self.symbol_dataframes[symbol]
-                min_candles = max(self.strategy_config.adx_period,
-                                  self.strategy_config.atr_period) * 2
+
+                # Calculate minimum candles needed
+                if self.strategy_config.enable_enhanced_confirmation:
+                    # Enhanced mode needs more data for EMA-200, MACD, etc.
+                    min_candles = max(
+                        self.strategy_config.ema_trend_period,  # 200 for EMA
+                        self.strategy_config.adx_period * 2,
+                        self.strategy_config.atr_period * 2,
+                        self.strategy_config.macd_slow + self.strategy_config.macd_signal
+                    ) + 10  # Extra buffer
+                else:
+                    min_candles = max(self.strategy_config.adx_period,
+                                      self.strategy_config.atr_period) * 2
 
                 if len(df) < min_candles:
                     continue
 
                 # Process data with all indicators
-                df_processed = self.analysis_service.process_symbol_data(symbol, df.copy())
+                df_processed = self.analysis_service.process_symbol_data(
+                    symbol, df.copy(),
+                    enable_enhanced=self.strategy_config.enable_enhanced_confirmation
+                )
 
                 if len(df_processed) == 0:
                     continue
@@ -387,7 +432,10 @@ class HeikinAshiStrategy:
             avg_volume = df['volume'].tail(20).mean() if len(df) >= 20 else df['volume'].mean()
             volume_ratio = live_quote.volume / avg_volume if avg_volume > 0 else 1.0
 
-            # Create signal
+            # Get enhanced confirmation data from latest row
+            latest_row = df.iloc[-1]
+
+            # Create signal with Enhanced Multi-Confirmation
             signal = HASignal(
                 symbol=symbol,
                 signal_type=SignalType.LONG,
@@ -396,14 +444,20 @@ class HeikinAshiStrategy:
                 target_price=target_price,
                 confidence=min(latest_candle.adx / 50.0, 1.0),  # Normalize ADX to 0-1
                 volume_ratio=volume_ratio,
-                momentum_score=df.iloc[-1].get('bullish_streak', 0),
+                momentum_score=latest_row.get('bullish_streak', 0),
                 adx=latest_candle.adx,
                 atr=latest_candle.atr,
-                consecutive_candles=int(df.iloc[-1].get('bullish_streak', 0)),
+                consecutive_candles=int(latest_row.get('bullish_streak', 0)),
                 ha_candle=latest_candle,
                 timestamp=datetime.now(),
                 risk_amount=risk_amount,
-                reward_amount=reward_amount
+                reward_amount=reward_amount,
+                # Enhanced Multi-Confirmation metrics
+                rsi=latest_candle.rsi,
+                macd_trending_up=latest_row.get('macd_trending_up', False),
+                supertrend_bullish=latest_row.get('supertrend_bullish', False),
+                price_above_ema=latest_row.get('price_above_ema', False),
+                signal_strength=latest_row.get('signal_strength', 0.0)
             )
 
             # Validate signal quality
@@ -411,9 +465,18 @@ class HeikinAshiStrategy:
                 logger.debug(f"Signal for {symbol} failed quality validation")
                 return None
 
-            logger.info(f"Generated signal for {symbol}: Entry Rs.{entry_price:.2f}, "
-                        f"SL Rs.{stop_loss:.2f}, Target Rs.{target_price:.2f}, "
-                        f"ADX: {latest_candle.adx:.1f}, Confidence: {signal.confidence:.2f}")
+            # Enhanced logging
+            if self.strategy_config.enable_enhanced_confirmation:
+                logger.info(f"Generated ENHANCED signal for {symbol}:")
+                logger.info(f"  Entry: Rs.{entry_price:.2f}, SL: Rs.{stop_loss:.2f}, Target: Rs.{target_price:.2f}")
+                logger.info(f"  ADX: {latest_candle.adx:.1f}, ATR: {latest_candle.atr:.2f}, Confidence: {signal.confidence:.2f}")
+                logger.info(f"  RSI: {latest_candle.rsi:.1f}, MACD: {'✓' if signal.macd_trending_up else '✗'}, "
+                            f"Supertrend: {'✓' if signal.supertrend_bullish else '✗'}, Above EMA: {'✓' if signal.price_above_ema else '✗'}")
+                logger.info(f"  Signal Strength: {signal.signal_strength:.2%}")
+            else:
+                logger.info(f"Generated signal for {symbol}: Entry Rs.{entry_price:.2f}, "
+                            f"SL Rs.{stop_loss:.2f}, Target Rs.{target_price:.2f}, "
+                            f"ADX: {latest_candle.adx:.1f}, Confidence: {signal.confidence:.2f}")
 
             return signal
 

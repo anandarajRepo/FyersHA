@@ -27,6 +27,17 @@ class HATechnicalAnalysisService:
         self.atr_period = 14
         self.volume_percentile = 60.0
 
+        # Enhanced Multi-Confirmation parameters
+        self.rsi_period = 14
+        self.rsi_overbought = 70
+        self.rsi_oversold = 30
+        self.macd_fast = 12
+        self.macd_slow = 26
+        self.macd_signal = 9
+        self.supertrend_period = 10
+        self.supertrend_multiplier = 3.0
+        self.ema_trend_period = 200
+
     def calculate_heikin_ashi(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate Heikin Ashi candles with EMA smoothing"""
         if df.empty or len(df) < 2:
@@ -124,6 +135,118 @@ class HATechnicalAnalysisService:
 
         return df
 
+    def calculate_rsi(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate RSI (Relative Strength Index) for momentum confirmation"""
+        if df.empty or len(df) < self.rsi_period + 1:
+            return df
+
+        # Calculate price changes
+        delta = df['close'].diff()
+
+        # Separate gains and losses
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+
+        # Calculate average gain and loss using EMA
+        avg_gain = gain.ewm(span=self.rsi_period, adjust=False).mean()
+        avg_loss = loss.ewm(span=self.rsi_period, adjust=False).mean()
+
+        # Calculate RS and RSI
+        rs = avg_gain / avg_loss
+        df['rsi'] = 100 - (100 / (1 + rs))
+
+        # RSI confirmation signals
+        df['rsi_bullish'] = (df['rsi'] > self.rsi_oversold) & (df['rsi'] < self.rsi_overbought)
+        df['rsi_oversold_signal'] = df['rsi'] < self.rsi_oversold  # Strong buy signal
+        df['rsi_overbought_signal'] = df['rsi'] > self.rsi_overbought  # Avoid entry
+
+        return df
+
+    def calculate_macd(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate MACD for trend confirmation"""
+        if df.empty or len(df) < self.macd_slow + self.macd_signal:
+            return df
+
+        # Calculate MACD components
+        ema_fast = df['close'].ewm(span=self.macd_fast, adjust=False).mean()
+        ema_slow = df['close'].ewm(span=self.macd_slow, adjust=False).mean()
+
+        df['macd'] = ema_fast - ema_slow
+        df['macd_signal'] = df['macd'].ewm(span=self.macd_signal, adjust=False).mean()
+        df['macd_histogram'] = df['macd'] - df['macd_signal']
+
+        # MACD crossover signals
+        df['macd_bullish'] = (df['macd'] > df['macd_signal']) & (df['macd'].shift(1) <= df['macd_signal'].shift(1))
+        df['macd_bearish'] = (df['macd'] < df['macd_signal']) & (df['macd'].shift(1) >= df['macd_signal'].shift(1))
+        df['macd_trending_up'] = df['macd'] > df['macd_signal']
+
+        return df
+
+    def calculate_supertrend(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate Supertrend indicator for trend direction"""
+        if df.empty or len(df) < self.supertrend_period + 1:
+            return df
+
+        # Calculate ATR if not already present
+        if 'atr' not in df.columns:
+            df = self.calculate_atr(df)
+
+        # Calculate basic bands
+        hl_avg = (df['high'] + df['low']) / 2
+        upper_band = hl_avg + (self.supertrend_multiplier * df['atr'])
+        lower_band = hl_avg - (self.supertrend_multiplier * df['atr'])
+
+        # Initialize Supertrend
+        supertrend = pd.Series(index=df.index, dtype=float)
+        direction = pd.Series(index=df.index, dtype=int)
+
+        # Calculate Supertrend
+        for i in range(1, len(df)):
+            if pd.isna(df['atr'].iloc[i]):
+                continue
+
+            curr_upper = upper_band.iloc[i]
+            curr_lower = lower_band.iloc[i]
+            prev_supertrend = supertrend.iloc[i-1] if not pd.isna(supertrend.iloc[i-1]) else curr_upper
+            prev_direction = direction.iloc[i-1] if not pd.isna(direction.iloc[i-1]) else -1
+
+            # Adjust bands
+            if curr_lower > prev_supertrend or df['close'].iloc[i-1] < prev_supertrend:
+                final_lower = curr_lower
+            else:
+                final_lower = max(curr_lower, prev_supertrend)
+
+            if curr_upper < prev_supertrend or df['close'].iloc[i-1] > prev_supertrend:
+                final_upper = curr_upper
+            else:
+                final_upper = min(curr_upper, prev_supertrend)
+
+            # Determine direction
+            if df['close'].iloc[i] <= final_upper:
+                supertrend.iloc[i] = final_upper
+                direction.iloc[i] = -1  # Bearish
+            else:
+                supertrend.iloc[i] = final_lower
+                direction.iloc[i] = 1  # Bullish
+
+        df['supertrend'] = supertrend
+        df['supertrend_direction'] = direction
+        df['supertrend_bullish'] = direction == 1
+        df['supertrend_bearish'] = direction == -1
+
+        return df
+
+    def calculate_ema(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate EMA for major trend identification"""
+        if df.empty or len(df) < self.ema_trend_period:
+            return df
+
+        df['ema_200'] = df['close'].ewm(span=self.ema_trend_period, adjust=False).mean()
+        df['price_above_ema'] = df['close'] > df['ema_200']
+        df['price_below_ema'] = df['close'] < df['ema_200']
+
+        return df
+
     def identify_good_volume(self, df: pd.DataFrame) -> pd.DataFrame:
         """Identify periods with good volume"""
         if df.empty:
@@ -150,26 +273,70 @@ class HATechnicalAnalysisService:
         return df
 
     def generate_buy_signals(self, df: pd.DataFrame, min_consecutive: int = 2,
-                             adx_threshold: float = 25.0) -> pd.DataFrame:
-        """Generate buy signals based on Heikin Ashi and indicators"""
+                             adx_threshold: float = 25.0, enable_enhanced_confirmation: bool = True) -> pd.DataFrame:
+        """Generate buy signals based on Heikin Ashi and Enhanced Multi-Confirmation"""
         if df.empty:
             return df
 
-        # BUY SIGNAL: All conditions must be true
-        df['buy_signal'] = (
-            (df['ha_bullish']) &                                    # Bullish HA candle
-            (df['bullish_streak'] >= min_consecutive) &            # Momentum (consecutive candles)
-            (df['adx'] > adx_threshold) &                          # Trending market
-            (df['good_volume']) &                                   # Good volume
-            (~df['adx'].isna()) &                                  # Valid ADX
-            (~df['atr'].isna())                                    # Valid ATR
-        )
+        if enable_enhanced_confirmation:
+            # ENHANCED MULTI-CONFIRMATION BUY SIGNAL: All conditions must be true
+            df['buy_signal'] = (
+                (df['ha_bullish']) &                                    # 1. Bullish HA candle
+                (df['bullish_streak'] >= min_consecutive) &            # 2. Momentum (consecutive candles)
+                (df['adx'] > adx_threshold) &                          # 3. Trending market (ADX > 25)
+                (df['good_volume']) &                                   # 4. Good volume
+                (df['rsi_bullish']) &                                  # 5. RSI confirmation (30-70 range)
+                (df['macd_trending_up']) &                             # 6. MACD bullish (above signal line)
+                (df['supertrend_bullish']) &                           # 7. Supertrend bullish
+                (df['price_above_ema']) &                              # 8. Price above 200 EMA (major uptrend)
+                (~df['adx'].isna()) &                                  # Valid indicators
+                (~df['atr'].isna()) &
+                (~df['rsi'].isna()) &
+                (~df['macd'].isna()) &
+                (~df['supertrend'].isna()) &
+                (~df['ema_200'].isna())
+            )
 
-        # SELL SIGNAL: Heikin Ashi turns bearish
-        df['sell_signal'] = (
-            (df['ha_bearish']) &
-            (df['ha_bullish'].shift(1))  # Was bullish, now bearish
-        )
+            # Enhanced confidence scoring
+            df['signal_strength'] = (
+                df['ha_bullish'].astype(int) +
+                (df['bullish_streak'] >= min_consecutive).astype(int) +
+                (df['adx'] > adx_threshold).astype(int) +
+                df['good_volume'].astype(int) +
+                df['rsi_bullish'].astype(int) +
+                df['macd_trending_up'].astype(int) +
+                df['supertrend_bullish'].astype(int) +
+                df['price_above_ema'].astype(int)
+            ) / 8.0  # Normalize to 0-1 scale
+
+            # ENHANCED SELL SIGNAL: Multiple bearish confirmations
+            df['sell_signal'] = (
+                (df['ha_bearish']) &
+                (
+                    (df['ha_bullish'].shift(1)) |                      # HA turns bearish
+                    (df['macd_bearish']) |                             # MACD bearish crossover
+                    (df['supertrend_bearish']) |                       # Supertrend turns bearish
+                    (df['rsi_overbought_signal'])                      # RSI overbought
+                )
+            )
+        else:
+            # STANDARD BUY SIGNAL (original logic): All conditions must be true
+            df['buy_signal'] = (
+                (df['ha_bullish']) &                                    # Bullish HA candle
+                (df['bullish_streak'] >= min_consecutive) &            # Momentum (consecutive candles)
+                (df['adx'] > adx_threshold) &                          # Trending market
+                (df['good_volume']) &                                   # Good volume
+                (~df['adx'].isna()) &                                  # Valid ADX
+                (~df['atr'].isna())                                    # Valid ATR
+            )
+
+            df['signal_strength'] = 0.0  # Default strength
+
+            # STANDARD SELL SIGNAL: Heikin Ashi turns bearish
+            df['sell_signal'] = (
+                (df['ha_bearish']) &
+                (df['ha_bullish'].shift(1))  # Was bullish, now bearish
+            )
 
         return df
 
@@ -216,7 +383,7 @@ class HATechnicalAnalysisService:
         return risk, reward, risk_reward_ratio
 
     def get_latest_ha_candle(self, symbol: str, df: pd.DataFrame) -> Optional[HeikinAshiCandle]:
-        """Get the latest Heikin Ashi candle for a symbol"""
+        """Get the latest Heikin Ashi candle for a symbol with Enhanced Multi-Confirmation indicators"""
         if df.empty or len(df) == 0:
             return None
 
@@ -238,13 +405,22 @@ class HATechnicalAnalysisService:
                 timestamp=latest.name if isinstance(latest.name, datetime) else datetime.now(),
                 adx=latest.get('adx', 0.0),
                 atr=latest.get('atr', 0.0),
-                good_volume=latest.get('good_volume', False)
+                good_volume=latest.get('good_volume', False),
+                # Enhanced Multi-Confirmation indicators
+                rsi=latest.get('rsi', 0.0),
+                macd=latest.get('macd', 0.0),
+                macd_signal=latest.get('macd_signal', 0.0),
+                macd_histogram=latest.get('macd_histogram', 0.0),
+                supertrend=latest.get('supertrend', 0.0),
+                supertrend_direction=int(latest.get('supertrend_direction', 0)),
+                ema_200=latest.get('ema_200', 0.0),
+                price_above_ema=latest.get('price_above_ema', False)
             )
         except Exception as e:
             logger.error(f"Error getting latest HA candle for {symbol}: {e}")
             return None
 
-    def process_symbol_data(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+    def process_symbol_data(self, symbol: str, df: pd.DataFrame, enable_enhanced: bool = True) -> pd.DataFrame:
         """Process complete data for a symbol - calculate all indicators"""
         if df.empty:
             return df
@@ -254,9 +430,17 @@ class HATechnicalAnalysisService:
             df = self.calculate_heikin_ashi(df)
             df = self.calculate_adx(df)
             df = self.calculate_atr(df)
+
+            # Enhanced Multi-Confirmation indicators
+            if enable_enhanced:
+                df = self.calculate_rsi(df)
+                df = self.calculate_macd(df)
+                df = self.calculate_supertrend(df)
+                df = self.calculate_ema(df)
+
             df = self.identify_good_volume(df)
             df = self.count_consecutive_candles(df)
-            df = self.generate_buy_signals(df)
+            df = self.generate_buy_signals(df, enable_enhanced_confirmation=enable_enhanced)
 
             return df
         except Exception as e:

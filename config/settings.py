@@ -39,6 +39,18 @@ class HeikinAshiStrategyConfig:
     atr_multiplier: float = 2.0  # Multiplier for ATR trailing stop
     volume_percentile: float = 60.0  # Volume percentile threshold
 
+    # Enhanced Multi-Confirmation Entry indicators
+    enable_enhanced_confirmation: bool = True  # Enable enhanced multi-confirmation entry
+    rsi_period: int = 14  # RSI calculation period
+    rsi_overbought: float = 70.0  # RSI overbought threshold
+    rsi_oversold: float = 30.0  # RSI oversold threshold
+    macd_fast: int = 12  # MACD fast EMA period
+    macd_slow: int = 26  # MACD slow EMA period
+    macd_signal: int = 9  # MACD signal line period
+    supertrend_period: int = 10  # Supertrend ATR period
+    supertrend_multiplier: float = 3.0  # Supertrend ATR multiplier
+    ema_trend_period: int = 200  # EMA period for major trend (200-period)
+
     # Risk management
     stop_loss_pct: float = 1.5  # Stop loss as % from entry
     target_multiplier: float = 2.0  # Target as multiple of risk
