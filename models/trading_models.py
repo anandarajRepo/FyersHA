@@ -31,7 +31,7 @@ class LiveQuote:
 
 @dataclass
 class HeikinAshiCandle:
-    """Heikin Ashi candle data"""
+    """Heikin Ashi candle data with Enhanced Multi-Confirmation indicators"""
     symbol: str
     ha_open: float
     ha_high: float
@@ -48,10 +48,20 @@ class HeikinAshiCandle:
     atr: float = 0.0
     good_volume: bool = False
 
+    # Enhanced Multi-Confirmation indicators
+    rsi: float = 0.0
+    macd: float = 0.0
+    macd_signal: float = 0.0
+    macd_histogram: float = 0.0
+    supertrend: float = 0.0
+    supertrend_direction: int = 0  # 1 for bullish, -1 for bearish
+    ema_200: float = 0.0
+    price_above_ema: bool = False
+
 
 @dataclass
 class HASignal:
-    """Heikin Ashi Signal"""
+    """Heikin Ashi Signal with Enhanced Multi-Confirmation"""
     symbol: str
     signal_type: SignalType  # LONG or SHORT
     entry_price: float
@@ -76,6 +86,13 @@ class HASignal:
     risk_amount: float
     reward_amount: float
     risk_reward_ratio: float = field(init=False)
+
+    # Enhanced Multi-Confirmation metrics (optional for backward compatibility)
+    rsi: float = 0.0
+    macd_trending_up: bool = False
+    supertrend_bullish: bool = False
+    price_above_ema: bool = False
+    signal_strength: float = 0.0  # 0-1 scale, calculated from all confirmations
 
     def __post_init__(self):
         if self.risk_amount > 0:
